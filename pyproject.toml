@@ -5,12 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sample-stems-manager"
 version = "0.1.0"
-description = "A backend API for managing audio samples and stems."
+description = "An API for managing audio samples and stems."
 readme = "README.md"
 requires-python = ">=3.10"
+
 dependencies = [
     "fastapi",
     "uvicorn",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -21,3 +23,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
