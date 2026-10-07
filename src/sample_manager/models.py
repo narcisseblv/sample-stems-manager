@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class SampleCreate(BaseModel):
     name: str
@@ -8,6 +8,7 @@ class SampleCreate(BaseModel):
     category: str
 
 class Sample(SampleCreate):
+    model_config = ConfigDict(from_attributes=True)
     id: int
 
 class SampleUpdate(BaseModel):
