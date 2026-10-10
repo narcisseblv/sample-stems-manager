@@ -77,6 +77,84 @@ def test_delete_sample(client: TestClient) -> None:
 
     assert get_response.status_code == 404
 
+def test_filter_samples_by_category(
+    client: TestClient) -> None:
+    first_sample = sample_payload()
+    second_sample = {
+        "name": "Boom Bap Drums",
+        "file_path": "data/boom-bap-drums.wav",
+        "bpm": 92,
+        "muscial_key": None,
+        "category": "drums"
+    }
+
+    client.post("/samples", json=first_sample)
+    client.post("/samples", json=second_sample)
+
+    response = client.get("/samples", params={"category": "drums"})
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["name"] == "Boom Bap Drums"
+
+def test_filter_samples_by_name(client: TestClient) -> None:
+    client.post("/samples", json=sample_payload())
+    response =client.get("/samples", 
+                         params={"name": "vapor"})
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["name"] == "Vaporwave Pad"
+
+def test_filter_samples_by_bpm_range(
+        client:TestClient
+) -> None:
+    first_sample = sample_payload()
+    second_sample = {
+        "name": "Fast Drum Loop",
+        "file_path": "data/fast_drums.wav",
+        "bpm": 140,
+        "musical_key": None,
+        "category": "drums"
+    }
+
+    client.post("/samples", json=first_sample)
+    client.post("/samples", json=second_sample)
+
+    response = client.get("/samples",
+                          params={
+                              "min_bpm": 80,
+                              "max_bpm": 100
+                          })
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["bpm"] == 83
+
+def test_filter_samples_without_result(
+        client:TestClient
+) -> None:
+    client.post("/samples", json=sample_payload())
+    response = client.get("/samples",
+                          params={"category": "vocals"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+def test_rejects_invalid_bpm_range(
+        client: TestClient
+) -> None:
+    response = client.get("/samples",
+                          params={
+                              "min_bpm": 150,
+                              "max_bpm": 80
+                          }
+)
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "min_bpm cannot be greater than max_bpm"
+    }
+
 """
 def test_update_missing_sample() -> None:
     response = client.patch("/samples/999", json={"bpm": 100})

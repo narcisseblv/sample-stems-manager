@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from sample_manager.database import get_db
@@ -15,8 +15,9 @@ router = APIRouter(
     response_model=Sample,
     status_code=status.HTTP_201_CREATED
 )
-def create_sample(sample_data: SampleCreate, 
-                  db: Session = Depends(get_db)) -> SampleDB:
+def create_sample(
+    sample_data: SampleCreate, 
+    db: Session = Depends(get_db)) -> SampleDB:
     new_sample = SampleDB(**sample_data.model_dump())
 
     db.add(new_sample)
@@ -26,8 +27,50 @@ def create_sample(sample_data: SampleCreate,
     return new_sample
 
 @router.get("", response_model=list[Sample])
-def get_samples(db: Session = Depends(get_db)) -> list[SampleDB]:
-    return db.query(SampleDB).all()
+def get_samples(
+    name: str | None = None,
+    category: str | None = None,
+    musical_key: str | None = None,
+    min_bpm: int | None = Query(default=None, ge=20, le=300),
+    max_bpm: int | None = Query(default=None, ge=20, le=300),
+    db: Session = Depends(get_db)) -> list[SampleDB]:
+    if (
+        min_bpm is not None 
+        and max_bpm is not None
+        and min_bpm > max_bpm
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="min_bpm cannot be greater than max_bpm"
+        )
+    query = db.query(SampleDB)
+
+    if name is not None:
+        query = query.filter(
+            SampleDB.name.ilike(f"%{name}%")
+        )
+
+    if category is not None:
+        query = query.filter(
+            SampleDB.category.ilike(category)
+        )
+
+    if musical_key is not None:
+        query = query.filter(
+            SampleDB.musical_key.ilike(musical_key)
+        )
+
+    if min_bpm is not None:
+        query = query.filter(
+            SampleDB.bpm >= min_bpm
+        )
+
+    if max_bpm is not None:
+        query = query.filter(
+            SampleDB.bpm <= max_bpm
+        )
+
+    return query.order_by(SampleDB.id).all()
 
 @router.get(
     "/{sample_id}",
