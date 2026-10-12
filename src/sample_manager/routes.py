@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pathlib import Path
+from uuid import uuid4
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from sample_manager.database import get_db
 from sample_manager.db_models import SampleDB
 from sample_manager.models import Sample, SampleCreate, SampleUpdate
+
+UPLOAD_DIR = Path('uploads')
+ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3"}
 
 router = APIRouter(
     prefix="/samples",
@@ -71,6 +76,50 @@ def get_samples(
         )
 
     return query.order_by(SampleDB.id).all()
+
+@router.post(
+    "/upload",
+    response_model=Sample,
+    status_code=status.HTTP_201_CREATED
+)
+async def upload_sample(
+    name: str = Form(...),
+    category: str = Form(...),
+    bpm: int | None = Form(default=None),
+    musical_key: str | None = Form(default=None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+) -> SampleDB:
+    extension = Path(file.filename or "").suffix.lower()
+
+    if extension not in ALLOWED_AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only WAV and MP3 files are allowed"
+        )
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    stored_filename = f"{uuid4()}{extension}"
+    stored_path = UPLOAD_DIR / stored_filename
+
+    file_content = await file.read()
+    stored_path.write_bytes(file_content)
+    await file.close()
+
+    new_sample = SampleDB(
+        name=name,
+        file_path=str(stored_path),
+        bpm=bpm,
+        musical_key=musical_key,
+        category=category
+    )
+
+    db.add(new_sample)
+    db.commit()
+    db.refresh(new_sample)
+
+    return new_sample
 
 @router.get(
     "/{sample_id}",

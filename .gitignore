@@ -6,3 +6,5 @@
 .DS_Store
 .vscode/
 /samples.db
+/uploads/*
+!/uploads/.gitkeep

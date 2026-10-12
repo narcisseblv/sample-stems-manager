@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from pathlib import Path
 #from sample_manager.main import app
 
 # client = TestClient(app)
@@ -155,6 +156,65 @@ def test_rejects_invalid_bpm_range(
         "detail": "min_bpm cannot be greater than max_bpm"
     }
 
+def test_upload_audio_file(
+    client: TestClient,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Test Kick",
+            "category": "drums",
+            "bpm": "92"
+        },
+        files={
+            "file": (
+                "kick.wav",
+                b"fake audio cntent",
+                "audio/wav"
+            )
+        }
+    )
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "Test Kick"
+    assert response.json()["bpm"] == 92
+
+    stored_path = Path(response.json()["file_path"])
+
+    assert stored_path.exists()
+    assert stored_path.suffix == ".wav"
+
+
+def test_rejects_unsupported_file(
+        client: TestClient
+) -> None:
+    response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Invalid File",
+            "category": "unknown"
+        },
+        files={
+            "file": (
+                "document.txt",
+                b"not audio",
+                "text/plain"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Only WAV and MP3 files are allowed"
+    }
+    
 """
 def test_update_missing_sample() -> None:
     response = client.patch("/samples/999", json={"bpm": 100})
