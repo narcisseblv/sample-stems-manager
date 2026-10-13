@@ -1,6 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from sample_manager.database import get_db
@@ -121,6 +122,48 @@ async def upload_sample(
 
     return new_sample
 
+@router.get(
+    "/{sample_id}/audio",
+    response_class=FileResponse
+)
+def download_sample_audio(
+    sample_id: int,
+    db: Session = Depends(get_db)
+) -> FileResponse:
+    sample = db.get(SampleDB, sample_id)
+
+    if sample is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sample not found"
+        )
+    file_path = Path(sample.file_path).resolve()
+    upload_directory = UPLOAD_DIR.resolve()
+
+    if (
+        upload_directory not in file_path.parents
+        or not file_path.is_file()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Audio file not found"
+        )
+
+    media_types = {
+        ".wav": "audio/wav",
+        ".mp3": "audio/mpeg"
+    }
+
+    media_type = media_types.get(
+        file_path.suffix.lower(),
+        "application/octet-stream"
+    )
+
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
+        filename=f"{sample.name}{file_path.suffix}"
+    )
 @router.get(
     "/{sample_id}",
     response_model=Sample

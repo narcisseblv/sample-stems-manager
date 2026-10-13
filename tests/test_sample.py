@@ -214,6 +214,89 @@ def test_rejects_unsupported_file(
     assert response.json() == {
         "detail": "Only WAV and MP3 files are allowed"
     }
+
+def test_download_audio_file(
+    client: TestClient,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    audio_content =b"fake audio content"
+
+    upload_response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Test Kick",
+            "category": "drums",
+            "bpm": "92"
+        },
+        files={
+            "file": (
+                "kick.wav",
+                audio_content,
+                "audio/wav"
+            )
+        }
+    )
+
+    assert upload_response.status_code == 201
+
+    sample_id = upload_response.json()["id"]
+
+    response = client.get(
+        f"/samples/{sample_id}/audio"
+    )
+
+    assert response.status_code == 200
+    assert response.content == audio_content
+    assert response.headers["content-type"] == "audio/wav"
+
+def test_download_missing_sample(
+    client: TestClient
+) -> None:
+    response = client.get("/samples/999/audio")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Sample not found"
+    }
+
+def test_download_missing_audio_file(
+    client: TestClient,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    create_response = client.post(
+        "/samples",
+        json={
+            "name": "Missing Sample",
+            "file_path": str(tmp_path / "missing.wav"),
+            "bpm": 90,
+            "musical_key": None,
+            "category": "drums"
+        }
+    )
+    
+    sample_id = create_response.json()["id"]
+
+    response = client.get(
+        f"/samples/{sample_id}/audio"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Audio file not found"
+    }
+
     
 """
 def test_update_missing_sample() -> None:
