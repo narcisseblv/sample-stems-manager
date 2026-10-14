@@ -285,7 +285,7 @@ def test_download_missing_audio_file(
             "category": "drums"
         }
     )
-    
+
     sample_id = create_response.json()["id"]
 
     response = client.get(
@@ -297,7 +297,118 @@ def test_download_missing_audio_file(
         "detail": "Audio file not found"
     }
 
-    
+def test_delete_sample_removes_audio_file(
+    client: TestClient,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    upload_response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Test Kick",
+            "category": "drums",
+            "bpm": "92"
+        },
+        files={
+            "file": (
+                "kick.wav",
+                b"fake audio content",
+                "audio/wav"
+            )
+        }
+    )
+
+    assert upload_response.status_code == 201
+
+    sample = upload_response.json()
+    sample_id = sample["id"]
+    audio_path = Path(sample["file_path"])
+
+    assert audio_path.exists()
+
+    delete_response = client.delete(
+        f"/samples/{sample_id}"
+    )
+
+    assert delete_response.status_code == 204
+    assert not audio_path.exists()
+
+    get_response = client.get(
+        f"/samples/{sample_id}"
+    )
+
+    assert get_response.status_code == 404
+
+def test_delete_sample_with_missing_file(
+    client: TestClient,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    response = client.post(
+        "/samples",
+        json={
+            "name": "Missing Audio",
+            "file_path": str(tmp_path / "missing.wav"),
+            "bpm": 90,
+            "musical_key": None,
+            "category": "drums"
+        }
+    )
+
+    sample_id = response.json()["id"]
+
+    delete_response = client.delete(
+        f"/samples/{sample_id}"
+    )
+
+    assert delete_response.status_code == 204
+
+    def test_delete_sample_not_removing_ext_file(
+        client: TestClient,
+        tmp_path,
+        monkeypatch
+    ) -> None:
+        upload_directory = tmp_path / "uploads"
+        upload_directory.mkdir()
+
+        external_file = tmp_path / "external.wav"
+        external_file.write_bytes(b"external audio")
+
+        monkeypatch.setattr(
+            "sample_manager.routes.UPLOAD_DIR",
+            upload_directory
+        )
+
+        response = client.post(
+            "/samples",
+            json={
+                "name": "External Audio",
+                "file_path": str(external_file),
+                "bpm": 90,
+                "musical_key": None,
+                "category": "drums"
+            }
+        )
+
+        sample_id = response.json()["id"]
+
+        delete_response = client.delete(
+            f"/samples/{sample_id}"
+        )
+
+        assert delete_response.status_code == 204
+        assert external_file.exists()
+
 """
 def test_update_missing_sample() -> None:
     response = client.patch("/samples/999", json={"bpm": 100})

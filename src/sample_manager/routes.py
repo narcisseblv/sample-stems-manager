@@ -211,16 +211,16 @@ def delete_sample(sample_id: int,
                 detail="Sample not found"
             )
 
+    file_path = Path(sample.file_path).resolve()
+    upload_directory = UPLOAD_DIR.resolve()
+
+    is_uploaded_file = upload_directory in file_path.parents
+
     db.delete(sample)
     db.commit()
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    if is_uploaded_file:
+        file_path.unlink(missing_ok=True)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Sample not found"
-    )
-
-
-
-
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT)
