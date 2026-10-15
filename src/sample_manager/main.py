@@ -1,9 +1,6 @@
 from fastapi import FastAPI
 from sample_manager.routes import router
-from sample_manager import db_models
-from sample_manager.database import Base, engine
 
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title = "Sample & Stems Manager",
