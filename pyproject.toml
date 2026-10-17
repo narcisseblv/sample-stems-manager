@@ -14,7 +14,8 @@ dependencies = [
     "uvicorn",
     "sqlalchemy>=2.0",
     "python-multipart",
-    "alembic>=1.13"
+    "alembic>=1.13",
+    "mutagen"
 ]
 
 [project.optional-dependencies]

@@ -10,6 +10,9 @@ class SampleCreate(BaseModel):
 class Sample(SampleCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    duration_seconds: float | None = None
+    file_size_bytes: int | None = None
+    audio_format: str | None = None
 
 class SampleUpdate(BaseModel):
     name: str | None = None

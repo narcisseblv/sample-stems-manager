@@ -8,6 +8,9 @@ from sample_manager.database import get_db
 from sample_manager.db_models import SampleDB
 from sample_manager.models import Sample, SampleCreate, SampleUpdate
 
+from mutagen import File as MutagenFile
+from mutagen import MutagenError
+
 UPLOAD_DIR = Path('uploads')
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3"}
 
@@ -108,12 +111,41 @@ async def upload_sample(
     stored_path.write_bytes(file_content)
     await file.close()
 
+    try:
+        audio = MutagenFile(stored_path)
+    except (MutagenError, OSError):
+        stored_path.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid audio file"
+        )
+
+    if audio is None or not hasattr(audio, "info"):
+        stored_path.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid audio file"       
+        )
+
+    duration_seconds = round(
+        float(audio.info.length),
+        3
+    )
+
+    file_size_bytes = stored_path.stat().st_size
+    audio_format = extension.removeprefix(".")
+
     new_sample = SampleDB(
         name=name,
         file_path=str(stored_path),
         bpm=bpm,
         musical_key=musical_key,
-        category=category
+        category=category,
+        duration_seconds=duration_seconds,
+        file_size_bytes=file_size_bytes,
+        audio_format=audio_format   
     )
 
     db.add(new_sample)
