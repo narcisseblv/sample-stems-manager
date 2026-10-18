@@ -445,7 +445,7 @@ def test_upload_extracts_audio_metadata(
         data={
             "name": "One Second Sample",
             "category": "pad",
-            "bpm": "83"
+            "bpm": "83" 
         },
         files={
             "file": (
@@ -496,6 +496,95 @@ def test_rejects_invalid_audio_content(
 
     assert list(tmp_path.iterdir()) == []
 
+def test_paginate_samples(client: TestClient) -> None:
+    for index in range(3):
+        payload = sample_payload()
+        payload["name"] = f"Sample {index + 1}"
+        payload["file_path"] = f"data/sample-{index + 1}.wav"
+
+        response = client.post("/samples", json=payload)
+
+        assert response.status_code == 201
+
+    response = client.get("/samples", params={
+        "offset":1,
+        "limit": 1
+    })
+
+    assert response.status_code == 200
+
+    samples = response.json()
+
+    assert len(samples) == 1
+    assert samples[0]["name"] == "Sample 2"
+
+def test_pagination_returns_empty_list(
+    client: TestClient
+) -> None:
+    client.post("/samples", json=sample_payload())
+
+    response = client.get(
+        "/samples",
+        params={
+            "offset": 100,
+            "limit": 10
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+@pytest.mark.parametrize(
+    ("parameter", "value"),
+    [
+        ("offset", -1),
+        ("limit", 0),
+        ("limit", 101)
+    ]
+)
+def test_rejects_invalid_pagination_parameters(
+    client: TestClient,
+    parameter: str,
+    value: int
+) -> None:
+    response = client.get(
+        "/samples",
+        params={
+            parameter: value
+        })
+
+    assert response.status_code == 422
+
+def test_combines_filter_and_pagination(
+    client: TestClient
+) -> None:
+    for index in range(3):
+        payload = sample_payload()
+        payload["name"] = f"Pad {index + 1}"
+        payload["file_path"] = f"data/pad-{index + 1}.wav"
+
+        client.post("/samples", json=payload)
+
+    drum = sample_payload()
+    drum["name"] = "Drum Loop"
+    drum["file_path"] = "data/drum-loop.wav"
+    drum["category"] = "drums"
+
+    client.post("/samples", json=payload)
+
+    response = client.get(
+        "/samples",
+        params={
+            "category": "pad",
+            "offset": 1,
+            "limit": 1
+        }
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["name"] == "Pad 2"
+    
 """
 def test_update_missing_sample() -> None:
     response = client.patch("/samples/999", json={"bpm": 100})

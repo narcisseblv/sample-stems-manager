@@ -42,6 +42,8 @@ def get_samples(
     musical_key: str | None = None,
     min_bpm: int | None = Query(default=None, ge=20, le=300),
     max_bpm: int | None = Query(default=None, ge=20, le=300),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)) -> list[SampleDB]:
     if (
         min_bpm is not None 
@@ -79,7 +81,7 @@ def get_samples(
             SampleDB.bpm <= max_bpm
         )
 
-    return query.order_by(SampleDB.id).all()
+    return query.order_by(SampleDB.id).offset(offset).limit(limit).all()
 
 @router.post(
     "/upload",
