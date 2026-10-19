@@ -21,3 +21,18 @@ class SampleUpdate(BaseModel):
     musical_key : str | None = None
     category: str | None = None
 
+class StemBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    stem_type: str = Field(min_length=1, max_length=50)
+
+class StemCreate(StemBase):
+    file_path: str
+    sample_id: int = Field(gt=0)
+
+class Stem(StemBase):
+    id: int
+    file_path: str
+    sample_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+    
