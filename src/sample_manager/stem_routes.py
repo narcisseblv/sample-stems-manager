@@ -35,7 +35,7 @@ def get_stem_or_err(
     if stem is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detaail="Stem not found"
+            detail="Stem not found"
         )
     return stem
 

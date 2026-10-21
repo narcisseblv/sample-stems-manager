@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from sample_manager import db_models
 from sample_manager.database import Base, get_db
 from sample_manager.main import app
 
