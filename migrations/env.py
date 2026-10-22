@@ -2,6 +2,7 @@ import os
 
 from sample_manager import db_models
 from sample_manager.database import Base, DATABASE_URL
+from sample_manager.config import settings
 
 from logging.config import fileConfig
 
@@ -21,7 +22,8 @@ database_url = os.getenv(
 
 config.set_main_option(
     "sqlalchemy.url",
-    database_url
+    settings.database_url.replace("%", "%%")
+    #database_url
 )
 
 target_metadata = Base.metadata

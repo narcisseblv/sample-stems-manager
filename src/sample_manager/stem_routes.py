@@ -20,10 +20,11 @@ from sqlalchemy.orm import Session
 from sample_manager.database import get_db
 from sample_manager.db_models import SampleDB, StemDB
 from sample_manager.models import Stem
+from sample_manager.config import settings
 
 router = APIRouter(tags=["stems"])
 
-STEM_UPLOAD_DIR = Path("uploads/stems")
+STEM_UPLOAD_DIR = settings.upload_dir / "stems"
 ALLOWED_EXTENSIONS = {".wav", ".mp3"}
 
 def get_stem_or_err(

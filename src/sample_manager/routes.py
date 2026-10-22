@@ -7,11 +7,12 @@ from sqlalchemy.orm import Session
 from sample_manager.database import get_db
 from sample_manager.db_models import SampleDB
 from sample_manager.models import Sample, SampleCreate, SampleUpdate
+from sample_manager.config import settings
 
 from mutagen import File as MutagenFile
 from mutagen import MutagenError
 
-UPLOAD_DIR = Path('uploads')
+UPLOAD_DIR = settings.upload_dir
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3"}
 
 router = APIRouter(
@@ -91,7 +92,7 @@ def get_samples(
 async def upload_sample(
     name: str = Form(...),
     category: str = Form(...),
-    bpm: int | None = Form(default=None),
+    bpm: int | None = Form(default=None, ge=20, le=300),
     musical_key: str | None = Form(default=None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)

@@ -8,3 +8,5 @@
 /samples.db
 /uploads/*
 !/uploads/.gitkeep
+# Local environment configuration
+.env

@@ -15,7 +15,8 @@ dependencies = [
     "sqlalchemy>=2.0",
     "python-multipart",
     "alembic>=1.13",
-    "mutagen"
+    "mutagen",
+    "pydantic-settings"
 ]
 
 [project.optional-dependencies]

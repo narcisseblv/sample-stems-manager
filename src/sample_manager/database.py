@@ -3,14 +3,28 @@ from collections.abc import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-# Creation of samples.db at the root.
-DATABASE_URL = "sqlite:///./samples.db"
+from sample_manager.config import settings
+
+DATABASE_URL = settings.database_url
 
 # SQLAlchemy engine which enables the link between Python and SQLite.
-
+"""
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} # check_same_thread=False enables FastAPI to use SQLite connection from different threads. 
+)
+"""
+
+engine_options = {}
+
+if DATABASE_URL.startswith("sqlite"):
+    engine_options["connect_args"] = {
+        "check_same_thread": False
+    }
+
+engine = create_engine(
+    DATABASE_URL,
+    **engine_options,
 )
 
 SessionLocal = sessionmaker(
