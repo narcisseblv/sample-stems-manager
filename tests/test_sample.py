@@ -201,7 +201,7 @@ def test_upload_audio_file(
         }
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 201, response.json()
     assert response.json()["name"] == "Test Kick"
     assert response.json()["bpm"] == 92
 
@@ -584,7 +584,107 @@ def test_combines_filter_and_pagination(
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["name"] == "Pad 2"
-    
+
+def test_rejects_oversized_audio(
+    client,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    monkeypatch.setattr(
+        "sample_manager.config.settings.max_audio_size_bytes",
+        10 
+    )
+
+    response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Large file",
+            "category": "test"
+        },
+        files={
+            "file": (
+                "large.wav",
+                make_wav_bytes(),
+                "audio/wav"
+            )
+        }
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "detail": "Audio file is too large"
+    }
+    assert list(tmp_path.iterdir()) == []
+
+def test_rejects_dangerous_filename(
+    client,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path
+    )
+
+    response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Unsafe file",
+            "category": "test"
+        },
+        files={
+            "file": (
+                "../unsafe.wav",
+                make_wav_bytes(),
+                "audio/wav"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Invalid filename"
+    }
+
+def test_rejects_mismatched_audio_format(
+    client,
+    tmp_path,
+    monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "sample_manager.routes.UPLOAD_DIR",
+        tmp_path 
+    )
+
+    response = client.post(
+        "/samples/upload",
+        data={
+            "name": "Wrong extension",
+            "category": "test"
+        },
+        files={
+            "file": (
+                "audiio.mp3",
+                make_wav_bytes(),
+                "audio/mpeg"
+            )
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": (
+            "Audio content does not match its extension"
+        )
+    }
+
+    assert list(tmp_path.iterdir()) == []
+
 """
 def test_update_missing_sample() -> None:
     response = client.patch("/samples/999", json={"bpm": 100})

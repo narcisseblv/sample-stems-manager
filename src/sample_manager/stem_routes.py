@@ -21,6 +21,10 @@ from sample_manager.database import get_db
 from sample_manager.db_models import SampleDB, StemDB
 from sample_manager.models import Stem
 from sample_manager.config import settings
+from sample_manager.audio_files import save_audio_file, resolve_managed_file
+
+from sqlalchemy.exc import SQLAlchemyError
+
 
 router = APIRouter(tags=["stems"])
 
@@ -57,68 +61,34 @@ def upload_stem(
     if sample is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sample not found"
+            detail="Sample not found",
         )
 
-    original_filename = file.filename or ""
-    extension = Path(original_filename).suffix.lower()
-
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only WAV and MP3 files are not allowed"
-        )
-
-    STEM_UPLOAD_DIR.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    stored_path = (STEM_UPLOAD_DIR / f"{uuid4()}{extension}")
-
-    try:
-        with stored_path.open("wb") as destination:
-            shutil.copyfileobj(
-                file.file,
-                destination
-            )
-    finally:
-        file.file.close()
-
-    try:
-        audio = MutagenFile(stored_path)
-    except (MutagenError, OSError):
-        stored_path.unlink(missing_ok=True)
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio file"
-        )
-
-    if audio is None or not hasattr(audio, "info"):
-        stored_path.unlink(missing_ok=True)
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio file"         
+    saved_audio = save_audio_file(
+        upload=file,
+        upload_directory=STEM_UPLOAD_DIR,
+        max_size_bytes=settings.max_audio_size_bytes
         )
 
     stem = StemDB(
         name=name,
-        file_path=str(stored_path),
         stem_type=stem_type,
+        file_path=str(saved_audio.path),
         sample_id=sample_id
-    )
+    )    
 
     try:
         db.add(stem)
         db.commit()
-        db.refresh(stem)
-    except Exception:
+    except SQLAlchemyError as exc:
         db.rollback()
-        stored_path.unlink(missing_ok=True)
-        raise
+        saved_audio.path.unlink(missing_ok=True)
 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save stem"
+        ) from exc
+    
     return stem
 
 @router.get(
@@ -159,13 +129,10 @@ def download_stem_audio(
 ) -> FileResponse:
     stem = get_stem_or_err(stem_id, db)
 
-    file_path = Path(stem.file_path)
-
-    if not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Audio file not found"
-        )
+    file_path = resolve_managed_file(
+        file_path=stem.file_path,
+        upload_directory=STEM_UPLOAD_DIR,
+    )    
 
     media_types = {
         ".wav": "audio/wav",

@@ -1,19 +1,22 @@
 from pathlib import Path
-from uuid import uuid4
+# from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
+from sample_manager.audio_files import save_audio_file, resolve_managed_file
+from sample_manager.config import settings
 from sample_manager.database import get_db
 from sample_manager.db_models import SampleDB
 from sample_manager.models import Sample, SampleCreate, SampleUpdate
 from sample_manager.config import settings
 
-from mutagen import File as MutagenFile
-from mutagen import MutagenError
+#from mutagen import File as MutagenFile
+#from mutagen import MutagenError
 
 UPLOAD_DIR = settings.upload_dir
-ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3"}
+# ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3"}
 
 router = APIRouter(
     prefix="/samples",
@@ -89,7 +92,7 @@ def get_samples(
     response_model=Sample,
     status_code=status.HTTP_201_CREATED
 )
-async def upload_sample(
+def upload_sample(
     name: str = Form(...),
     category: str = Form(...),
     bpm: int | None = Form(default=None, ge=20, le=300),
@@ -97,66 +100,39 @@ async def upload_sample(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ) -> SampleDB:
-    extension = Path(file.filename or "").suffix.lower()
-
-    if extension not in ALLOWED_AUDIO_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only WAV and MP3 files are allowed"
-        )
-
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-    stored_filename = f"{uuid4()}{extension}"
-    stored_path = UPLOAD_DIR / stored_filename
-
-    file_content = await file.read()
-    stored_path.write_bytes(file_content)
-    await file.close()
-
-    try:
-        audio = MutagenFile(stored_path)
-    except (MutagenError, OSError):
-        stored_path.unlink(missing_ok=True)
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio file"
-        )
-
-    if audio is None or not hasattr(audio, "info"):
-        stored_path.unlink(missing_ok=True)
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio file"       
-        )
-
-    duration_seconds = round(
-        float(audio.info.length),
-        3
+    saved_audio = save_audio_file(
+        upload=file,
+        upload_directory=UPLOAD_DIR,
+        max_size_bytes=settings.max_audio_size_bytes
     )
 
-    file_size_bytes = stored_path.stat().st_size
-    audio_format = extension.removeprefix(".")
-
-    new_sample = SampleDB(
+    sample = SampleDB(
         name=name,
-        file_path=str(stored_path),
+        file_path=str(saved_audio.path),
         bpm=bpm,
         musical_key=musical_key,
         category=category,
-        duration_seconds=duration_seconds,
-        file_size_bytes=file_size_bytes,
-        audio_format=audio_format   
+        duration_seconds=saved_audio.duration_seconds,
+        file_size_bytes=saved_audio.size_bytes,
+        audio_format=saved_audio.audio_format
     )
 
-    db.add(new_sample)
-    db.commit()
-    db.refresh(new_sample)
+    try:
+        db.add(sample)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        saved_audio.path.unlink(missing_ok=True)
 
-    return new_sample
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save sample"
+        ) from exc
+    db.refresh(sample)
 
+    return sample
+
+  
 @router.get(
     "/{sample_id}/audio",
     response_class=FileResponse
@@ -172,18 +148,10 @@ def download_sample_audio(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Sample not found"
         )
-    file_path = Path(sample.file_path).resolve()
-    upload_directory = UPLOAD_DIR.resolve()
-
-    if (
-        upload_directory not in file_path.parents
-        or not file_path.is_file()
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Audio file not found"
-        )
-
+    file_path = resolve_managed_file(
+        file_path=sample.file_path,
+        upload_directory=UPLOAD_DIR
+    )
     media_types = {
         ".wav": "audio/wav",
         ".mp3": "audio/mpeg"
@@ -197,7 +165,7 @@ def download_sample_audio(
     return FileResponse(
         path=file_path,
         media_type=media_type,
-        filename=f"{sample.name}{file_path.suffix}"
+        filename=file_path.name
     )
 @router.get(
     "/{sample_id}",

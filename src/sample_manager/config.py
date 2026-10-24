@@ -8,6 +8,8 @@ from pydantic_settings import (
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./samples.db"
     upload_dir: Path = Path("uploads")
+    max_audio_size_bytes: int = 50 * 1024 * 1024
+
 
     model_config = SettingsConfigDict(
         env_file=".env",
