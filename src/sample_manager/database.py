@@ -6,35 +6,23 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sample_manager.config import settings
 
 DATABASE_URL = settings.database_url
-
-# SQLAlchemy engine which enables the link between Python and SQLite.
-"""
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} # check_same_thread=False enables FastAPI to use SQLite connection from different threads. 
-)
-"""
-
 engine_options = {}
-
+# check_same_thread=False allows FastAPI to use the SQLite
+# connection from different threads.
 if DATABASE_URL.startswith("sqlite"):
-    engine_options["connect_args"] = {
-        "check_same_thread": False
-    }
+    engine_options["connect_args"] = {"check_same_thread": False}
 
 engine = create_engine(
     DATABASE_URL,
     **engine_options,
 )
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    expire_on_commit=False
-)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
 
 class Base(DeclarativeBase):
     pass
+
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
@@ -43,4 +31,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-    

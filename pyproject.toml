@@ -23,6 +23,7 @@ dependencies = [
 dev = [
     "pytest",
     "httpx",
+    "ruff"
 ]
 
 [tool.setuptools.packages.find]
@@ -30,3 +31,23 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+extend-exclude = [
+    "blv",
+    "uploads",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+]
+ignore = ["B008"]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

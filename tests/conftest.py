@@ -6,27 +6,25 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from sample_manager import db_models
+from sample_manager import db_models  # noqa: F401
 from sample_manager.database import Base, get_db
 from sample_manager.main import app
 
 TEST_DATABASE_URL = "sqlite://"
 
 test_engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    TEST_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 
 TestingSessionLocal = sessionmaker(
-    bind=test_engine,
-    autoflush=False,
-    expire_on_commit=False
+    bind=test_engine, autoflush=False, expire_on_commit=False
 )
+
 
 def override_get_db() -> Generator[Session, None, None]:
     with TestingSessionLocal() as db:
         yield db
+
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
