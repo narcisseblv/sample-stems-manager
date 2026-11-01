@@ -189,6 +189,7 @@ def test_rejects_invalid_stem_audio(
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid audio file"}
 
+
 def test_get_missing_stem(client: TestClient) -> None:
     response = client.get("/stems/999")
 
