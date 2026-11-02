@@ -1,12 +1,25 @@
+# Virtual environments
 /blv/
+.venv/
+venv/
+# Python
 `__pycache__/
 *.py[cod]
-.pytest_cache/
 *.egg-info/
+#macOS
 .DS_Store
 .vscode/
+# Database
 /samples.db
+*.db
+#Uploaded audio files
 /uploads/*
 !/uploads/.gitkeep
 # Local environment configuration
 .env
+# Pytest and Ruff
+.pytest_cache/
+.ruff_cache/
+# IDE
+.vscode/
+.idea/
